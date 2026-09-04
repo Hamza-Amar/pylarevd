@@ -112,3 +112,42 @@ def test_display3d_figure_and_pdf_save(tmp_path):
     d3.save(str(pdf_file), elev=30.0, azim=45.0)
     assert pdf_file.exists()
     assert pdf_file.stat().st_size > 5000
+
+
+@needs_ndk
+def test_display3d_particle_symbols(tmp_path):
+    """Display3D should display particle symbols for matched tracks and showers."""
+    ev = EventFile(NDK_PATH)[0]
+    d3 = ev.display_3d(truth=True, tracks=True, particle_symbols=True)
+    fig = d3.plotly_figure()
+    trace_names = [tr.name for tr in fig.data]
+    assert "particle symbols" in trace_names
+    sym_trace = [tr for tr in fig.data if tr.name == "particle symbols"][0]
+    assert any("K" in txt for txt in sym_trace.text)
+    assert any("e" in txt for txt in sym_trace.text)
+
+    # Matplotlib PDF save with particle symbols
+    pdf_file = tmp_path / "test_syms.pdf"
+    d3.save(str(pdf_file), elev=25.0, azim=-45.0, particle_symbols=True)
+    assert pdf_file.exists()
+    assert pdf_file.stat().st_size > 5000
+
+
+@needs_ndk
+def test_event_display_2d_particle_symbols():
+    """EventDisplay (2D) should project and render particle symbols in Plotly and Matplotlib."""
+    ev = EventFile(NDK_PATH)[9]
+    d2 = ev.display(reco=True, particle_symbols=True)
+
+    # 1. Plotly 2D
+    fig_plotly = d2.plotly_figure()
+    sym_traces = [tr for tr in fig_plotly.data if tr.name == "particle symbols"]
+    assert len(sym_traces) > 0
+    all_texts = [txt for tr in sym_traces for txt in (tr.text if hasattr(tr, "text") and tr.text is not None else [])]
+    assert any("K" in t for t in all_texts)
+    assert any("μ" in t or "mu" in t or "e" in t for t in all_texts)
+
+    # 2. Matplotlib 2D
+    fig_mpl = d2.figure(particle_symbols=True)
+    texts_mpl = [t.get_text() for ax in fig_mpl.axes for t in ax.texts]
+    assert any("K" in t for t in texts_mpl)

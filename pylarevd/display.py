@@ -1261,7 +1261,7 @@ class EventDisplay(_TruthInfo):
                 ax.plot([tv[0]], [tv[1]], "X", color=t.mctrack, markersize=7,
                         markeredgecolor=t.axes_bg, markeredgewidth=0.8,
                         zorder=7, label="true vertex", linestyle="none")
-            show_syms = False
+            show_syms = self.particle_symbols if particle_symbols is None else particle_symbols
             if not readout and show_syms:
                 matched = self._matched_particle_labels()
                 for m in matched:
@@ -1524,7 +1524,7 @@ class EventDisplay(_TruthInfo):
                                    f"<br>({v[0]:.1f}, {v[1]:.1f}, "
                                    f"{v[2]:.1f}) cm<extra></extra>")),
                     row=r + 1, col=c + 1)
-            show_syms = False
+            show_syms = self.particle_symbols if particle_symbols is None else particle_symbols
             if not readout and show_syms:
                 matched = self._matched_particle_labels()
                 if matched:
@@ -2127,7 +2127,7 @@ class Display3D(_TruthInfo):
                         "-", color=t.shower, linewidth=1.4, alpha=0.85,
                         label="shower axes" if j == 0 else None)
 
-        show_syms = False
+        show_syms = self.particle_symbols if particle_symbols is None else particle_symbols
         if show_syms:
             matched = self._matched_particle_labels()
             for m in matched:
