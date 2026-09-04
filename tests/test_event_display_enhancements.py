@@ -61,3 +61,43 @@ def test_spacepoints_physics_quantities():
     assert len(sp.amplitude) == len(sp)
     assert len(sp.tick) == len(sp)
     assert len(sp.multiplicity) == len(sp)
+
+
+@needs_ndk
+def test_hiding_elements_and_pandora_vertex():
+    """Verify granular element visibility and hiding pandora interaction vertex."""
+    ev = EventFile(NDK_PATH)[9]
+
+    # 1. 3D with pandora_vertex=False
+    d3_no_pan = ev.display_3d(tracks=True, pandora_vertex=False)
+    fig3_no_pan = d3_no_pan.plotly_figure()
+    names3_no_pan = [tr.name for tr in fig3_no_pan.data]
+    assert "pandora interaction vertex" not in names3_no_pan
+    assert "primary daughter vertices" in names3_no_pan
+    assert "reco tracks" in names3_no_pan
+
+    # 2. 3D with pandora_vertex=True
+    d3_pan = ev.display_3d(tracks=True, pandora_vertex=True)
+    fig3_pan = d3_pan.plotly_figure()
+    names3_pan = [tr.name for tr in fig3_pan.data]
+    assert "pandora interaction vertex" in names3_pan
+
+    # Check marker symbols
+    pan_tr = [tr for tr in fig3_pan.data if tr.name == "pandora interaction vertex"][0]
+    dau_tr = [tr for tr in fig3_pan.data if tr.name == "primary daughter vertices"][0]
+    sec_tr = [tr for tr in fig3_pan.data if tr.name == "secondary vertices"][0]
+    assert pan_tr.marker.symbol == "x"
+    assert dau_tr.marker.symbol == "diamond"
+    assert sec_tr.marker.symbol == "circle"
+
+    # 3. Matplotlib 3D figure
+    fig_mpl_no_pan = d3_no_pan.figure()
+    leg_texts = [t.get_text() for t in fig_mpl_no_pan.axes[0].get_legend().get_texts()]
+    assert "pandora interaction vertex" not in leg_texts
+    assert "primary daughter vertices" in leg_texts
+
+    # 4. 2D display with pandora_vertex=False
+    d2_no_pan = ev.display(tag=None, reco=True, pandora_vertex=False)
+    fig2_no_pan = d2_no_pan.plotly_figure()
+    names2_no_pan = [tr.name for tr in fig2_no_pan.data]
+    assert "pandora interaction vertex" not in names2_no_pan
