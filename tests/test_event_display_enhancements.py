@@ -64,54 +64,41 @@ def test_spacepoints_physics_quantities():
 
 
 @needs_ndk
-def test_hiding_elements_and_pandora_vertex():
-    """Verify granular element visibility and hiding pandora interaction vertex."""
-    ev = EventFile(NDK_PATH)[9]
+def test_display3d_colour_options_and_vertex():
+    """Display3D must support all physics colour quantities and show true vertex with LaTeX decay."""
+    ev = EventFile(NDK_PATH)[0]
+    for cb in ("integral", "amplitude", "tick", "multiplicity", "track", "x", "y", "z"):
+        d3 = ev.display_3d(colour_by=cb, colour_scale="auto")
+        fig = d3.plotly_figure()
+        trace_names = [tr.name for tr in fig.data]
+        assert "space points" in trace_names
+        assert "true vertex" in trace_names
+        assert fig.layout.uirevision is not None
+        tv_trace = [tr for tr in fig.data if tr.name == "true vertex"][0]
+        assert "n" in tv_trace.hovertemplate and "K" in tv_trace.hovertemplate
 
-    # 1. 3D with pandora_vertex=False
-    d3_no_pan = ev.display_3d(tracks=True, pandora_vertex=False)
-    fig3_no_pan = d3_no_pan.plotly_figure()
-    names3_no_pan = [tr.name for tr in fig3_no_pan.data]
-    assert "pandora interaction vertex" not in names3_no_pan
-    assert "primary daughter vertices" in names3_no_pan
-    assert "reco tracks" in names3_no_pan
+    # Check vertex roles according to user's approach
+    # Event 10 (entry 9)
+    ev10 = EventFile(NDK_PATH)[9]
+    d3_ev10 = ev10.display_3d(tracks=True)
+    fig_ev10 = d3_ev10.plotly_figure()
+    ev10_names = [tr.name for tr in fig_ev10.data]
+    assert "pandora interaction vertex" in ev10_names
+    assert "primary daughter vertices" in ev10_names
+    assert "secondary vertices" in ev10_names
 
-    # 2. 3D with pandora_vertex=True
-    d3_pan = ev.display_3d(tracks=True, pandora_vertex=True)
-    fig3_pan = d3_pan.plotly_figure()
-    names3_pan = [tr.name for tr in fig3_pan.data]
-    assert "pandora interaction vertex" in names3_pan
+    pan_tr = [tr for tr in fig_ev10.data if tr.name == "pandora interaction vertex"][0]
+    dau_tr = [tr for tr in fig_ev10.data if tr.name == "primary daughter vertices"][0]
+    sec_tr = [tr for tr in fig_ev10.data if tr.name == "secondary vertices"][0]
 
-    # Check marker symbols
-    pan_tr = [tr for tr in fig3_pan.data if tr.name == "pandora interaction vertex"][0]
-    dau_tr = [tr for tr in fig3_pan.data if tr.name == "primary daughter vertices"][0]
-    sec_tr = [tr for tr in fig3_pan.data if tr.name == "secondary vertices"][0]
     assert pan_tr.marker.symbol == "x"
     assert dau_tr.marker.symbol == "diamond"
     assert sec_tr.marker.symbol == "circle"
 
-    # 3. Matplotlib 3D figure
-    fig_mpl_no_pan = d3_no_pan.figure()
-    leg_texts = [t.get_text() for t in fig_mpl_no_pan.axes[0].get_legend().get_texts()]
-    assert "pandora interaction vertex" not in leg_texts
-    assert "primary daughter vertices" in leg_texts
-
-    # 4. 2D display with pandora_vertex=False
-    d2_no_pan = ev.display(tag=None, reco=True, pandora_vertex=False)
-    fig2_no_pan = d2_no_pan.plotly_figure()
-    names2_no_pan = [tr.name for tr in fig2_no_pan.data]
-    assert "pandora interaction vertex" not in names2_no_pan
-
-
-@needs_ndk
-def test_display3d_figure_and_pdf_save(tmp_path):
-    """Display3D.save should export vector PDF matching custom elev/azim perspective."""
-    ev = EventFile(NDK_PATH)[0]
-    d3 = ev.display_3d(colour_by="integral")
-    pdf_file = tmp_path / "test_snapshot.pdf"
-    d3.save(str(pdf_file), elev=30.0, azim=45.0)
-    assert pdf_file.exists()
-    assert pdf_file.stat().st_size > 5000
+    # Test rotating GIF generation
+    gif_bytes = d3_ev10.rotate_gif(elev=20.0, start_azim=0.0, step=60, fps=10)
+    assert len(gif_bytes) > 1000
+    assert gif_bytes[:4] == b"GIF8"
 
 
 @needs_ndk
@@ -134,7 +121,92 @@ def test_display3d_particle_symbols(tmp_path):
 
 
 @needs_ndk
-def test_event_display_2d_particle_symbols():
+def test_display3d_figure_and_pdf_save(tmp_path):
+    """Display3D.save should export vector PDF matching custom elev/azim perspective."""
+    ev = EventFile(NDK_PATH)[0]
+    d3 = ev.display_3d(colour_by="integral")
+    pdf_file = tmp_path / "test_snapshot.pdf"
+    d3.save(str(pdf_file), elev=30.0, azim=45.0)
+    assert pdf_file.exists()
+    assert pdf_file.stat().st_size > 5000
+
+
+@needs_ndk
+def test_app_callbacks_and_snapshot():
+    """Dash app should support fixing perspective, particle symbols, and PDF snapshots."""
+    app = build_app([NDK_PATH])
+    assert app is not None
+
+    # Test PDF snapshot callback
+    snap_fn = app.callback_map["download-snapshot.data"]["callback"].__wrapped__
+    relayout = {"scene.camera": {"up": {"x": 0, "y": 0, "z": 1}, "center": {"x": 0, "y": 0, "z": 0}, "eye": {"x": 1.5, "y": -1.2, "z": 0.8}}}
+    res = snap_fn(1, NDK_PATH, 0, None, "integral", "auto", "3d", ["on"], "orientation", ["on"], "dark", "cividis", ["on"], True, relayout, None, None)
+    assert res is not None
+    assert res.get("type") == "application/pdf"
+    assert res.get("filename").endswith(".pdf")
+    assert len(res.get("content")) > 1000
+
+    # Test particle symbols toggle
+    toggle_fn = app.callback_map["..show-symbols.data...particle-symbols.children...particle-symbols.style.."]["callback"].__wrapped__
+    active, label, style = toggle_fn(1, False)
+    assert active is True
+    assert "particle symbols" in label
+
+    # Check index_string CSS contains dropdown contrast styling
+    assert ".Select-control" in app.index_string
+    assert "#1e293b" in app.index_string
+    assert "[data-theme=\"light\"]" in app.index_string
+
+
+@needs_ndk
+def test_hiding_elements_and_pandora_vertex():
+    """Verify granular element visibility and hiding pandora interaction vertex."""
+    from pylarevd.app import render, _parse_reco
+    ev = EventFile(NDK_PATH)[9]
+    files = {NDK_PATH: EventFile(NDK_PATH)}
+
+    # Parse reco helper
+    assert _parse_reco(["tracks", "vertices"]) == (True, True, False)
+    assert _parse_reco(["tracks", "vertices", "pandora_vtx"]) == (True, True, True)
+    assert _parse_reco(["on"]) == (True, True, True)
+    assert _parse_reco([]) == (False, False, False)
+
+    # 1. 3D with pandora_vertex=False
+    d3_no_pan = ev.display_3d(tracks=True, pandora_vertex=False)
+    fig3_no_pan = d3_no_pan.plotly_figure()
+    names3_no_pan = [tr.name for tr in fig3_no_pan.data]
+    assert "pandora interaction vertex" not in names3_no_pan
+    assert "primary daughter vertices" in names3_no_pan
+    assert "reco tracks" in names3_no_pan
+
+    # 2. 3D with pandora_vertex=True
+    d3_pan = ev.display_3d(tracks=True, pandora_vertex=True)
+    fig3_pan = d3_pan.plotly_figure()
+    names3_pan = [tr.name for tr in fig3_pan.data]
+    assert "pandora interaction vertex" in names3_pan
+
+    # 3. Matplotlib 3D figure
+    fig_mpl_no_pan = d3_no_pan.figure()
+    leg_texts = [t.get_text() for t in fig_mpl_no_pan.axes[0].get_legend().get_texts()]
+    assert "pandora interaction vertex" not in leg_texts
+    assert "primary daughter vertices" in leg_texts
+
+    # 4. App render with reco=["tracks", "vertices"]
+    fig_render_no_pan, _ = render(files, NDK_PATH, 9, None, "integral", "auto", "3d", truth=[], reco=["tracks", "vertices"])
+    render_names = [tr.name for tr in fig_render_no_pan.data]
+    assert "pandora interaction vertex" not in render_names
+    assert "primary daughter vertices" in render_names
+    assert "reco tracks" in render_names
+
+    # 5. 2D display with pandora_vertex=False
+    d2_no_pan = ev.display(tag=None, reco=True, pandora_vertex=False)
+    fig2_no_pan = d2_no_pan.plotly_figure()
+    names2_no_pan = [tr.name for tr in fig2_no_pan.data]
+    assert "pandora interaction vertex" not in names2_no_pan
+
+
+@needs_ndk
+def test_event_display_2d_particle_symbols(tmp_path):
     """EventDisplay (2D) should project and render particle symbols in Plotly and Matplotlib."""
     ev = EventFile(NDK_PATH)[9]
     d2 = ev.display(reco=True, particle_symbols=True)
@@ -152,24 +224,13 @@ def test_event_display_2d_particle_symbols():
     texts_mpl = [t.get_text() for ax in fig_mpl.axes for t in ax.texts]
     assert any("K" in t for t in texts_mpl)
 
+    # 3. App render callback in 2D mode
+    files = {NDK_PATH: EventFile(NDK_PATH)}
+    fig_render, _ = render(
+        files, NDK_PATH, 9, None, "integral", "auto", "2d",
+        truth=[], reco=["tracks", "vertices"], particle_symbols=True
+    )
+    assert any(tr.name == "particle symbols" for tr in fig_render.data)
 
-@needs_ndk
-def test_display3d_colour_options_and_vertex():
-    """Display3D must support all physics colour quantities, LaTeX decay hover, and rotating GIF."""
-    ev = EventFile(NDK_PATH)[0]
-    for cb in ("integral", "amplitude", "tick", "multiplicity", "track", "x", "y", "z"):
-        d3 = ev.display_3d(colour_by=cb, colour_scale="auto")
-        fig = d3.plotly_figure()
-        trace_names = [tr.name for tr in fig.data]
-        assert "space points" in trace_names
-        assert "true vertex" in trace_names
-        assert fig.layout.uirevision is not None
-        tv_trace = [tr for tr in fig.data if tr.name == "true vertex"][0]
-        assert "n" in tv_trace.hovertemplate and "K" in tv_trace.hovertemplate
 
-    # Test rotating GIF generation
-    ev10 = EventFile(NDK_PATH)[9]
-    d3_ev10 = ev10.display_3d(tracks=True)
-    gif_bytes = d3_ev10.rotate_gif(elev=20.0, start_azim=0.0, step=60, fps=10)
-    assert len(gif_bytes) > 1000
-    assert gif_bytes[:4] == b"GIF8"
+
