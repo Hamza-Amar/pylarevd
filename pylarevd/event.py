@@ -190,6 +190,9 @@ class SpacePoints(_Selectable):
     chisq: np.ndarray
     id: np.ndarray
     charge: np.ndarray
+    amplitude: np.ndarray | None = None
+    tick: np.ndarray | None = None
+    multiplicity: np.ndarray | None = None
 
     def __len__(self) -> int:
         return len(self.xyz)

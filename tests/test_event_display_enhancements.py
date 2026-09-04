@@ -48,3 +48,16 @@ def test_true_vertex_universal():
     assert tv_musun is not None
     assert len(tv_musun) == 3
     assert np.isfinite(tv_musun).all()
+
+
+@needs_ndk
+def test_spacepoints_physics_quantities():
+    """SpacePoints dataclass should provide hit physics quantities."""
+    ev = EventFile(NDK_PATH)[0]
+    sp = ev.spacepoints()
+    assert hasattr(sp, "amplitude")
+    assert hasattr(sp, "tick")
+    assert hasattr(sp, "multiplicity")
+    assert len(sp.amplitude) == len(sp)
+    assert len(sp.tick) == len(sp)
+    assert len(sp.multiplicity) == len(sp)
