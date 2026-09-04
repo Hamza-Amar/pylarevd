@@ -151,3 +151,25 @@ def test_event_display_2d_particle_symbols():
     fig_mpl = d2.figure(particle_symbols=True)
     texts_mpl = [t.get_text() for ax in fig_mpl.axes for t in ax.texts]
     assert any("K" in t for t in texts_mpl)
+
+
+@needs_ndk
+def test_display3d_colour_options_and_vertex():
+    """Display3D must support all physics colour quantities, LaTeX decay hover, and rotating GIF."""
+    ev = EventFile(NDK_PATH)[0]
+    for cb in ("integral", "amplitude", "tick", "multiplicity", "track", "x", "y", "z"):
+        d3 = ev.display_3d(colour_by=cb, colour_scale="auto")
+        fig = d3.plotly_figure()
+        trace_names = [tr.name for tr in fig.data]
+        assert "space points" in trace_names
+        assert "true vertex" in trace_names
+        assert fig.layout.uirevision is not None
+        tv_trace = [tr for tr in fig.data if tr.name == "true vertex"][0]
+        assert "n" in tv_trace.hovertemplate and "K" in tv_trace.hovertemplate
+
+    # Test rotating GIF generation
+    ev10 = EventFile(NDK_PATH)[9]
+    d3_ev10 = ev10.display_3d(tracks=True)
+    gif_bytes = d3_ev10.rotate_gif(elev=20.0, start_azim=0.0, step=60, fps=10)
+    assert len(gif_bytes) > 1000
+    assert gif_bytes[:4] == b"GIF8"

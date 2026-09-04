@@ -2241,6 +2241,42 @@ class Display3D(_TruthInfo):
         plt.close(fig)
         return path
 
+    def rotate_gif(self, elev: float = 18.0, start_azim: float = -60.0,
+                   step: int = 3, fps: int = 12,
+                   figsize: tuple[float, float] = (9.8, 8.0),
+                   zoom: float = 1.45, pad: float = 0.20,
+                   marker_size: float = 3.2, alpha: float = 1.0,
+                   particle_symbols: bool | None = None) -> bytes:
+        """Render a 360-degree rotating animated GIF of the 3D event."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from PIL import Image
+        import io
+
+        fig = self.figure(elev=elev, azim=start_azim, figsize=figsize,
+                          zoom=zoom, pad=pad,
+                          marker_size=marker_size, alpha=alpha,
+                          particle_symbols=particle_symbols)
+        ax = fig.axes[0]
+        ax.set_anchor("W")
+        fig.subplots_adjust(left=0.01, right=0.91, top=0.88, bottom=0.02)
+        frames = []
+        for angle in range(0, 360, step):
+            azim = (start_azim + angle) % 360
+            ax.view_init(elev=elev, azim=azim)
+            fig.canvas.draw()
+            rgba = np.asarray(fig.canvas.buffer_rgba())
+            frames.append(Image.fromarray(rgba).convert("P", palette=Image.ADAPTIVE))
+        plt.close(fig)
+
+        buf = io.BytesIO()
+        duration = int(1000 / fps)
+        if frames:
+            frames[0].save(buf, format="GIF", save_all=True,
+                           append_images=frames[1:], duration=duration, loop=0)
+        return buf.getvalue()
+
 
 class FlashDisplay3D(_TruthInfo):
     """Reconstructed optical flashes in the detector volume.
