@@ -101,3 +101,14 @@ def test_hiding_elements_and_pandora_vertex():
     fig2_no_pan = d2_no_pan.plotly_figure()
     names2_no_pan = [tr.name for tr in fig2_no_pan.data]
     assert "pandora interaction vertex" not in names2_no_pan
+
+
+@needs_ndk
+def test_display3d_figure_and_pdf_save(tmp_path):
+    """Display3D.save should export vector PDF matching custom elev/azim perspective."""
+    ev = EventFile(NDK_PATH)[0]
+    d3 = ev.display_3d(colour_by="integral")
+    pdf_file = tmp_path / "test_snapshot.pdf"
+    d3.save(str(pdf_file), elev=30.0, azim=45.0)
+    assert pdf_file.exists()
+    assert pdf_file.stat().st_size > 5000

@@ -2058,11 +2058,12 @@ class Display3D(_TruthInfo):
     # plotly's 3-D traces need WebGL, which a headless machine cannot provide,
     # so static 3-D images go through matplotlib instead.
 
-    def figure(self, *, marker_size: float = 0.6, alpha: float = 0.75,
+    def figure(self, *, marker_size: float = 3.2, alpha: float = 1.0,
                elev: float = 18.0, azim: float = -60.0, roll: float | None = None,
                particle_symbols: bool | None = None,
-               zoom: float = 1.1, pad: float = 0.20,
-               figsize: tuple[float, float] | None = None):
+               zoom: float = 1.45, pad: float = 0.20,
+               figsize: tuple[float, float] = (9.8, 8.2)):
+
         import matplotlib
         matplotlib.use("Agg")
         plt = _pyplot()
@@ -2071,7 +2072,7 @@ class Display3D(_TruthInfo):
         fig = plt.figure(figsize=figsize or _preset_figsize(self.preset, 11.0, 7.0))
         fig.patch.set_facecolor(t.fig_bg)
         ax = fig.add_subplot(111, projection="3d")
-        # ax.set_anchor("W")
+        ax.set_anchor("W")
 
         if self.draw_tpcs and self.focus == "detector":
             for box in self.geometry.tpcs:
@@ -2159,7 +2160,7 @@ class Display3D(_TruthInfo):
                             alpha=alpha, label="space points")
             cb = fig.colorbar(sc, ax=ax, shrink=0.88, fraction=0.035, pad=0.05)
             _style_colorbar(cb, clabel, t, fonts)
-            # ax.set_anchor("W")
+            ax.set_anchor("W")
 
         ax.set_xlabel("z [cm]  (beam)", fontsize=8)
         ax.set_ylabel("x [cm]  (drift)", fontsize=8)
@@ -2219,14 +2220,14 @@ class Display3D(_TruthInfo):
                             markerscale=_LEGEND_MARKERSCALE_3D,
                             loc="upper left", bbox_to_anchor=(0.01, 0.88))
             leg.set_zorder(10)
-        # ax.set_anchor("W")
+        ax.set_anchor("W")
         fig.subplots_adjust(left=0.01, right=0.91, top=0.88, bottom=0.02)
         return fig
 
     def save(self, path: str, *, dpi: int | None = None, elev: float = 18.0,
              azim: float = -60.0, roll: float | None = None,
-             zoom: float = 1.1, pad: float = 0.20,
-             marker_size: float = 0.6, alpha: float = 0.75,
+             zoom: float = 1.45, pad: float = 0.20,
+             marker_size: float = 3.2, alpha: float = 1.0,
              particle_symbols: bool | None = None, **kwargs) -> str:
         _vector_text()
         dpi = PRESETS[self.preset]["dpi"] if dpi is None else dpi
